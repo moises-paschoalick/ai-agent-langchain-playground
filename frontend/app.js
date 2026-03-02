@@ -4,6 +4,13 @@ let isAnimating = false;
 let streamFinished = false;
 
 function startStream() {
+    const input = document.getElementById("prompt");
+    console.log("=== Iniciando ===")
+    console.log("prompt: " + input)
+    const userPrompt = input.value.trim();
+    
+    if(!userPrompt) return;
+        
     const chat = document.getElementById("chat");
     chat.innerText = ""; // limpa antes de começar
 
@@ -16,7 +23,10 @@ function startStream() {
     cursor.classList.add("cursor");
     chat.appendChild(cursor);
 
-    const eventSource = new EventSource("http://localhost:8000/agent/stream");
+    // Encode para envitar problemas com espaços e caracteres especiais
+    const encodedPrompt = encodeURIComponent(userPrompt);
+    const eventSource = new EventSource(`http://localhost:8000/agent/stream?prompt=${encodedPrompt}`);
+    console.log("=== Chamando api phython ===")
 
     eventSource.onmessage = function(event) {
         const data = JSON.parse(event.data);
@@ -54,3 +64,8 @@ function animate(chat, cursor) {
         }
     }
 }
+
+document.getElementById("chat-form").addEventListener("submit", function(event) {
+    event.preventDefault();
+    startStream();
+});
