@@ -88,8 +88,8 @@ langchain-playground/
 1. Clonar o repositório
 
 ```bash
-git clone https://github.com/SEU_USUARIO/IA-Agent-LangChain-Playground.git
-cd IA-Agent-LangChain-Playground
+git clone https://github.com/moises-paschoalick/ai-agent-langchain-playground
+cd ai-agent-langChain-playground
 ```
 
 2. Criar ambiente virtual e ativar
@@ -115,7 +115,36 @@ cp .env-example .env
 
 ## Executar exemplos
 
-1. Chamadas simples com app.py
+1. Streaming agent via REST API (agent_stream_api.py)
+```
+cd backend
+uvicorn agent_stream_api:app --reload --port 8000
+```
+
+2. Exemplo de chamadas dos endpoints (POST + GET)
+```bash
+curl -X POST http://localhost:8000/agent/execute \
+  -H "Content-Type: application/json" \
+  -d '{
+        "system_prompt": "You are an expert blog writer.",
+        "prompt": "Write an article about AI in finance."
+      }'
+```
+Resposta:
+```
+{
+  "execution_id": "uuid-generated-here",
+  "stream_url": "/agent/stream/uuid-generated-here"
+}
+```
+
+Consumir streaming via SSE
+```
+curl -N http://localhost:8000/agent/stream/{execution_id}
+```
+
+## Outros para efeito de aprendizado
+1. Chamadas simples com app.py (para estudar passo a passo)
 ```bash
 python app.py
 ```
@@ -125,19 +154,25 @@ python app.py
 python agent_app.py
 ```
 
-3. Streaming agent via REST API (agent_stream_api.py)
-```
-uvicorn agent_stream_api:app --reload --port 8000
-```
-
-4. Endpoint streaming: http://localhost:8000/agent/stream
+3. Endpoint streaming: http://localhost:8000/agent/stream
 
 Pode ser consumido via EventSource no front-end ou curl -N
 ```
 curl -N http://localhost:8000/agent/stream
 ```
 
+4. Visualizar os endpoinds doc
+```
+http://localhost:8000/docs
+```
+
 ## Frontend
+```
+cd frontend
+``` 
+
+abra o index.html (no VSCode use o liveserver - botão direito no arquivo - 'open with liveserver')
+
 
 O frontend foi desenvolvido de forma simples, utilizando HTML, CSS e JavaScript puro, sem frameworks.
 

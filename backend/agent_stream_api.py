@@ -1,13 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.messages import HumanMessage
 
-from fastapi.middleware.cors import CORSMiddleware
-
 import json
 import asyncio
+import uuid
 
 load_dotenv()
 
@@ -21,57 +22,50 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Armazenamento simples em memória
+executions = {}
+
+class AgentRequest(BaseModel):
+    system_prompt: str
+    prompt: str
+
+# Execução
+@app.post("/agent/execute")
+async def execute_agent(request: AgentRequest):
+    
+    execution_id = str(uuid.uuid4())
+    
+    executions[execution_id] = {
+        "system_prompt": request.system_prompt,
+        "prompt": request.prompt
+    }
+    
+    return {
+        "execution_id": execution_id,
+        "stream_url": f"/agent/stream/{execution_id}"
+    }
 
 @app.get("/agent/stream")
-async def agent_stream(prompt: str):
+async def agent_stream(execution_id: str):
     """
     Endpoint streaming de um agent LangChain.
     Envia tokens para o front-end usando Server-Sent Events (SSE).
     """
+    if execution_id not in executions:
+        raise HTTPException(status_code=404, detail="Execution not found")
     
-    system_prompt = """
-        Você é um redator especialista em produção de conteúdo para blog.
-
-        Quando o usuário solicitar um artigo, gere o conteúdo em HTML válido.
-
-        Regras obrigatórias:
-        - Retorne apenas HTML.
-        - Não inclua explicações fora do HTML.
-        - Use apenas as seguintes tags: <h1>, <h2>, <p>, <ul>, <li>, <strong>.
-        - Não use markdown.
-        - Não envolva com ```html.
-
-        Estrutura:
-
-        <h1>Título</h1>
-
-        <p>Introdução</p>
-
-        <h2>Subtítulo</h2>
-        <p>Parágrafo</p>
-
-        <h2>Conclusão</h2>
-        <p>Fechamento</p>
-
-        <ul>
-        <li>Palavra-chave 1</li>
-        <li>Palavra-chave 2</li>
-        <li>Palavra-chave 3</li>
-        <li>Palavra-chave 4</li>
-        <li>Palavra-chave 5</li>
-        </ul>
-    """
+    data = executions[execution_id]    
     
     agent = create_agent(
         model="gpt-5-nano",
-        system_prompt=system_prompt
+        system_prompt= data["system_prompt"]
     )
     
     # Generator async que envia tokens
     async def event_generator():
         ## Com o astream, não espera o resultado ficar pronto para enviar
         async for token, metadata in agent.astream(
-            {"messages": [HumanMessage(content=prompt)]},
+            {"messages": [HumanMessage(content=data["prompt"])]},
             stream_mode="messages"
         ):
             if token.content:
@@ -83,4 +77,3 @@ async def agent_stream(prompt: str):
         yield "event: end\ndata: [DONE]\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
